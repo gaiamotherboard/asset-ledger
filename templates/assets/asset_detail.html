@@ -1,0 +1,151 @@
+<!--
+Minimal, correct Django asset detail template.
+Shows: asset header, upload scan bundle form, latest scan metadata/status, drives, and activity.
+This file replaces the previous template and is intentionally small and stable.
+-->
+
+<div style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background:#f8fafc; color:#0f172a; min-height:100vh; padding:20px; box-sizing:border-box;">
+  <div style="max-width:980px; margin:0 auto;">
+
+    <!-- Top bar -->
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;">
+      <a href="{% url 'home' %}" style="color:#2563eb;text-decoration:none;font-weight:700;">← Home</a>
+      <div style="color:#64748b;font-size:0.95rem;">{{ request.user.username }}</div>
+    </div>
+
+    <!-- Asset header -->
+    <div style="background:#ffffff;border:1px solid #e6edf3;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+      <div style="font-size:1.4rem;font-weight:800;">Asset <span style="color:#1d4ed8;">{{ asset.asset_tag }}</span></div>
+      <div style="margin-top:6px;color:#64748b;font-size:0.95rem;">Created {{ asset.created_at|date:"Y-m-d H:i" }} by {{ asset.created_by.username }}</div>
+    </div>
+
+    <!-- Flash messages -->
+    {% if messages %}
+      <div style="margin-bottom:14px;">
+        {% for message in messages %}
+          <div style="background:#fff;border:1px solid #e6edf3;border-radius:10px;padding:10px 12px;margin-bottom:8px;color:#475569;">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- Upload scan bundle -->
+    <div style="background:#fff;border:1px solid #e6edf3;border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="font-weight:800;margin-bottom:8px;">Upload Scan Bundle JSON</div>
+      <form method="post" action="{% url 'asset_scan_upload' asset.asset_tag %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div style="margin-bottom:10px;">
+          <label style="font-weight:700;display:block;margin-bottom:6px;">Scan bundle JSON file (motherboard.scan_bundle.v1)</label>
+          {{ upload_form.file }}
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-weight:700;display:block;margin-bottom:6px;">Notes (optional)</label>
+          {{ upload_form.user_notes }}
+        </div>
+        <button type="submit" style="background:#16a34a;color:#fff;border:none;padding:10px 12px;border-radius:8px;font-weight:800;cursor:pointer;">Upload</button>
+      </form>
+    </div>
+
+    <!-- Latest scan bundle -->
+    {% if latest_scan %}
+      <div style="background:#fff;border:1px solid #e6edf3;border-radius:10px;padding:12px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-weight:800;">Latest Scan Bundle</div>
+          <div style="color:#64748b;">Saved {{ latest_scan.scanned_at|date:"Y-m-d H:i" }}</div>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;">
+          <div style="flex:1 1 220px;min-width:220px;">
+            <div style="font-weight:700;color:#64748b;">Generated At</div>
+            <div style="margin-top:6px;">{% if latest_scan.generated_at %}{{ latest_scan.generated_at|date:"Y-m-d H:i" }}{% else %}{{ latest_scan.raw_json.generated_at|default:"Unknown" }}{% endif %}</div>
+          </div>
+
+          <div style="flex:1 1 220px;min-width:220px;">
+            <div style="font-weight:700;color:#64748b;">Scanner</div>
+            <div style="margin-top:6px;">{% if latest_scan.raw_json.scanner %}{{ latest_scan.raw_json.scanner.hostname|default:"" }} / {{ latest_scan.raw_json.scanner.user|default:"" }}{% else %}N/A{% endif %}</div>
+          </div>
+
+          <div style="flex:1 1 220px;min-width:220px;">
+            <div style="font-weight:700;color:#64748b;">Intake</div>
+            <div style="margin-top:6px;">Tech: {% if latest_scan.tech_name %}{{ latest_scan.tech_name }}{% else %}{{ latest_scan.raw_json.intake.tech_name|default:"" }}{% endif %}</div>
+            <div style="color:#64748b;margin-top:4px;">Client: {% if latest_scan.client_name %}{{ latest_scan.client_name }}{% else %}{{ latest_scan.raw_json.intake.client_name|default:"" }}{% endif %}</div>
+            <div style="color:#64748b;margin-top:4px;">Condition: {% if latest_scan.cosmetic_condition %}{{ latest_scan.cosmetic_condition }}{% else %}{{ latest_scan.raw_json.intake.cosmetic_condition|default:"" }}{% endif %}</div>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;">
+          <div style="font-weight:800;margin-bottom:6px;">Source Status</div>
+          <div style="overflow:auto;">
+            <table style="width:100%;border-collapse:collapse;">
+              <thead></thead>
+                <tr style="text-align:left;border-bottom:1px solid #e6edf3;">
+                  <th style="padding:6px 8px;">Source</th>
+                  <th style="padding:6px 8px;">RC</th>
+                  <th style="padding:6px 8px;">Stderr (truncated)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+                {% for src, st in latest_scan.raw_json.meta.status.items %}
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:6px 8px;font-weight:700;">{{ src }}</td>
+                    <td style="padding:6px 8px;">{{ st.rc }}</td>
+                    <td style="padding:6px 8px;color:#475569;max-width:60ch;"><pre style="white-space:pre-wrap;margin:0;padding:0;">{{ st.stderr|default:""|slice:":200" }}</pre></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Drives -->
+    <div style="background:#fff;border:1px solid #e6edf3;border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+        <div style="font-weight:800;">Drives ({{ display_drives|length }})</div>
+        <div style="color:#64748b;font-size:0.95rem;">(Boot media excluded)</div>
+      </div>
+
+      {% if hard_drive_present %}
+        <div style="margin-top:10px;background:#fff7f7;border:1px solid #fecaca;color:#991b1b;padding:10px;border-radius:8px;">
+          <strong>Warning</strong>:</strong> First-class hard drive detected. Presume it contains data until processed.
+        </div>
+      {% endif %}
+
+      {% if display_drives %}
+        <div style="margin-top:10px;">
+          {% for drive in display_drives %}
+            <div style="border:1px solid #f1f5f9;border-radius:8px;padding:12px;margin-bottom:8px;background:#fff;">
+              <div style="font-weight:900;">{{ drive.model|default:"Unknown Model" }}</div>
+              <div style="color:#64748b;margin-top:6px;">{% if drive.capacity_human %}{{ drive.capacity_human }}{% endif %}{% if drive.logicalname %} — {{ drive.logicalname }}{% endif %}</div>
+              <div style="color:#64748b;margin-top:4px;">Serial: {{ drive.serial }}</div>
+              <div style="color:#64748b;margin-top:4px;">Status: {{ drive.get_status_display }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="color:#64748b;">No drives detected.</div>
+      {% endif %}
+    </div>
+
+    <!-- Activity -->
+    <div style="background:#fff;border:1px solid #e6edf3;border-radius:10px;padding:12px;">
+      <div style="font-weight:800;margin-bottom:8px;">Activity</div>
+      {% if touches %}
+        <ul style="list-style:none;padding:0;margin:0;">
+          {% for t in touches %}
+            <li style="padding:8px;border:1px solid #f1f5f9;border-radius:8px;margin-bottom:8px;">
+              <div style="font-weight:700;">{{ t.get_touch_type_display }}</div>
+              <div style="color:#64748b;">{{ t.touched_at|date:"Y-m-d H:i" }} — {{ t.touched_by.username }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div style="color:#64748b;">No activity yet.</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>

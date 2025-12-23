@@ -1,0 +1,1 @@
+db:5432:assetdb:postgres:assetdb_dev_password
